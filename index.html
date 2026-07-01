@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laporan Keuangan Bulanan</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f8f9fa;
+        padding: 20px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      /* --- CSS UNTUK KARTU RINGKASAN --- */
+      .summary-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+      .summary-card {
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .summary-card h4 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        font-weight: normal;
+        opacity: 0.9;
+      }
+      .summary-card p {
+        margin: 0;
+        font-size: 22px;
+        font-weight: bold;
+      }
+      .bg-income {
+        background-color: #2e7d32;
+      } /* Hijau */
+      .bg-expense {
+        background-color: #d9534f;
+      } /* Merah */
+      .bg-plan {
+        background-color: #f0ad4e;
+      } /* Oranye */
+      .bg-balance-real {
+        background-color: #0275d8;
+      } /* Biru */
+      .bg-balance-plan {
+        background-color: #17a2b8;
+      } /* Biru Muda/Teal */
+      /* ------------------------------------- */
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h3 {
+        color: #333;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 5px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #333;
+        color: white;
+      }
+      .form-group {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      input,
+      select,
+      button {
+        padding: 6px;
+        font-size: 14px;
+      }
+      button {
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+      }
+      .btn-google {
+        background-color: #db4437;
+        font-weight: bold;
+      }
+      #app-content,
+      #summary-section {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h2>Laporan Keuangan Bulanan</h2>
+      <div>
+        <span id="userInfo"></span>
+        <button id="loginBtn" class="btn-google">Login with Google</button>
+        <button id="logoutBtn" style="display: none; background-color: #6c757d">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <div id="summary-section" class="summary-container">
+      <div class="summary-card bg-income">
+        <h4>Total Pendapatan</h4>
+        <p id="tot-pendapatan">Rp0</p>
+      </div>
+      <div class="summary-card bg-expense">
+        <h4>Total Pengeluaran</h4>
+        <p id="tot-pengeluaran">Rp0</p>
+      </div>
+      <div class="summary-card bg-plan">
+        <h4>Total Rencana</h4>
+        <p id="tot-rencana">Rp0</p>
+      </div>
+      <div class="summary-card bg-balance-real">
+        <h4>Sisa (Pendapatan - Pengeluaran)</h4>
+        <p id="tot-sisa-pengeluaran">Rp0</p>
+      </div>
+      <div class="summary-card bg-balance-plan">
+        <h4>Sisa (Pendapatan - Rencana)</h4>
+        <p id="tot-sisa-rencana">Rp0</p>
+      </div>
+    </div>
+
+    <div id="app-content" class="grid-container">
+      <div class="card">
+        <h3>Pendapatan</h3>
+        <div class="form-group">
+          <input type="date" id="date-pendapatan" required />
+          <input
+            type="number"
+            id="nom-pendapatan"
+            placeholder="Nominal"
+            required
+          />
+          <input
+            type="text"
+            id="ket-pendapatan"
+            placeholder="Uraian"
+            required
+          />
+          <select id="kat-pendapatan">
+            <option value="Gaji">Gaji</option>
+            <option value="Freelance">Freelance</option>
+            <option value="Bonus">Bonus</option>
+            <option value="Investasi">Investasi</option>
+            <option value="Withdrawal">Withdrawal</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <button onclick="tambahData('pendapatan')">Tambah</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Nominal</th>
+              <th>Uraian</th>
+              <th>Kategori</th>
+            </tr>
+          </thead>
+          <tbody id="table-pendapatan"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Pengeluaran</h3>
+        <div class="form-group">
+          <input type="date" id="date-pengeluaran" required />
+          <input
+            type="number"
+            id="nom-pengeluaran"
+            placeholder="Nominal"
+            required
+          />
+          <input
+            type="text"
+            id="ket-pengeluaran"
+            placeholder="Uraian"
+            required
+          />
+          <select id="kat-pengeluaran">
+            <option value="Tagihan">Tagihan</option>
+            <option value="Cash">Cash</option>
+            <option value="Savings">Savings</option>
+            <option value="Transfer">Transfer</option>
+            <option value="Deposit">Deposit</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <button onclick="tambahData('pengeluaran')">Tambah</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Nominal</th>
+              <th>Uraian</th>
+              <th>Kategori</th>
+            </tr>
+          </thead>
+          <tbody id="table-pengeluaran"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Rencana Pengeluaran</h3>
+        <div class="form-group">
+          <input type="date" id="date-rencana" required />
+          <input
+            type="number"
+            id="nom-rencana"
+            placeholder="Nominal"
+            required
+          />
+          <input type="text" id="ket-rencana" placeholder="Uraian" required />
+          <select id="kat-rencana">
+            <option value="Tagihan">Tagihan</option>
+            <option value="Cash">Cash</option>
+            <option value="Savings">Savings</option>
+            <option value="Transfer">Transfer</option>
+            <option value="Deposit">Deposit</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <button onclick="tambahData('rencana')">Tambah</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Nominal</th>
+              <th>Uraian</th>
+            </tr>
+          </thead>
+          <tbody id="table-rencana"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+      import {
+        getAuth,
+        signInWithPopup,
+        GoogleAuthProvider,
+        signOut,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+      import {
+        getFirestore,
+        collection,
+        addDoc,
+        query,
+        where,
+        onSnapshot,
+        orderBy,
+      } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyA5SmScxfhRunQW5_dU4QyhyGvKe3Pp5yc",
+        authDomain: "keuangan-ku-a0a62.firebaseapp.com",
+        projectId: "keuangan-ku-a0a62",
+        storageBucket: "keuangan-ku-a0a62.firebasestorage.app",
+        messagingSenderId: "400209904843",
+        appId: "1:400209904843:web:21479af3c02ec5992fc74e",
+        measurementId: "G-84K28W52EP",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      let currentUser = null;
+
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const appContent = document.getElementById("app-content");
+      const summarySection = document.getElementById("summary-section");
+      const userInfo = document.getElementById("userInfo");
+
+      loginBtn.addEventListener("click", () => {
+        const provider = new GoogleAuthProvider();
+        signInWithPopup(auth, provider).catch((error) =>
+          console.error("Login Error:", error),
+        );
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        signOut(auth).catch((error) => console.error("Logout Error:", error));
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          currentUser = user;
+          loginBtn.style.display = "none";
+          logoutBtn.style.display = "inline-block";
+          appContent.style.display = "grid";
+          summarySection.style.display = "grid";
+          userInfo.textContent = `Halo, ${user.displayName} | `;
+          muatData();
+        } else {
+          currentUser = null;
+          loginBtn.style.display = "inline-block";
+          logoutBtn.style.display = "none";
+          appContent.style.display = "none";
+          summarySection.style.display = "none";
+          userInfo.textContent = "";
+        }
+      });
+
+      window.tambahData = async function (tipe) {
+        if (!currentUser) return alert("Silakan login dulu!");
+
+        const dateInput = document.getElementById(`date-${tipe}`).value;
+        const nomInput = document.getElementById(`nom-${tipe}`).value;
+        const ketInput = document.getElementById(`ket-${tipe}`).value;
+        const katElement = document.getElementById(`kat-${tipe}`);
+        const katInput = katElement ? katElement.value : "-";
+
+        if (!dateInput || !nomInput || !ketInput)
+          return alert("Harap isi semua kolom!");
+
+        try {
+          await addDoc(collection(db, "transaksi"), {
+            uid: currentUser.uid,
+            tipe: tipe,
+            tanggal: dateInput,
+            nominal: parseInt(nomInput),
+            uraian: ketInput,
+            kategori: katInput,
+            timestamp: new Date(),
+          });
+          document.getElementById(`nom-${tipe}`).value = "";
+          document.getElementById(`ket-${tipe}`).value = "";
+        } catch (e) {
+          console.error("Error adding document: ", e);
+        }
+      };
+
+      function formatRupiah(angka) {
+        return new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          minimumFractionDigits: 0,
+        }).format(angka);
+      }
+
+      function muatData() {
+        if (!currentUser) return;
+
+        const q = query(
+          collection(db, "transaksi"),
+          where("uid", "==", currentUser.uid),
+          orderBy("timestamp", "asc"),
+        );
+
+        onSnapshot(q, (snapshot) => {
+          const dataPendapatan = document.getElementById("table-pendapatan");
+          const dataPengeluaran = document.getElementById("table-pengeluaran");
+          const dataRencana = document.getElementById("table-rencana");
+
+          dataPendapatan.innerHTML = "";
+          dataPengeluaran.innerHTML = "";
+          dataRencana.innerHTML = "";
+
+          let totalPendapatan = 0;
+          let totalPengeluaran = 0;
+          let totalRencana = 0;
+
+          snapshot.forEach((doc) => {
+            const dt = doc.data();
+            const row = `<tr>
+                        <td>${dt.tanggal}</td>
+                        <td>${formatRupiah(dt.nominal)}</td>
+                        <td>${dt.uraian}</td>
+                        ${dt.tipe !== "rencana" ? `<td>${dt.kategori}</td>` : ""}
+                    </tr>`;
+
+            if (dt.tipe === "pendapatan") {
+              dataPendapatan.innerHTML += row;
+              totalPendapatan += dt.nominal;
+            } else if (dt.tipe === "pengeluaran") {
+              dataPengeluaran.innerHTML += row;
+              totalPengeluaran += dt.nominal;
+            } else if (dt.tipe === "rencana") {
+              dataRencana.innerHTML += row;
+              totalRencana += dt.nominal;
+            }
+          });
+
+          // PERHITUNGAN BARU: Dipisah menjadi 2 bagian
+          const sisaPengeluaran = totalPendapatan - totalPengeluaran;
+          const sisaRencana = totalPendapatan - totalRencana;
+
+          // Update UI
+          document.getElementById("tot-pendapatan").textContent =
+            formatRupiah(totalPendapatan);
+          document.getElementById("tot-pengeluaran").textContent =
+            formatRupiah(totalPengeluaran);
+          document.getElementById("tot-rencana").textContent =
+            formatRupiah(totalRencana);
+
+          document.getElementById("tot-sisa-pengeluaran").textContent =
+            formatRupiah(sisaPengeluaran);
+          document.getElementById("tot-sisa-rencana").textContent =
+            formatRupiah(sisaRencana);
+        });
+      }
+    </script>
+  </body>
+</html>
