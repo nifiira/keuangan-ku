@@ -31,7 +31,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let currentUser = null;
-let dataSnapshotGlobal = null; // Menyimpan data snapshot secara global untuk kebutuhan filter otomatis
+let dataSnapshotGlobal = null; 
 
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -40,7 +40,6 @@ const summarySection = document.getElementById("summary-section");
 const filterSection = document.getElementById("filter-section");
 const userInfo = document.getElementById("userInfo");
 
-// Filter Inputs
 const filterType = document.getElementById("filter-type");
 const filterDate = document.getElementById("filter-date");
 const filterMonth = document.getElementById("filter-month");
@@ -63,7 +62,7 @@ onAuthStateChanged(auth, (user) => {
     logoutBtn.style.display = "inline-block";
     appContent.style.display = "grid";
     summarySection.style.display = "grid";
-    filterSection.style.display = "flex"; // Tampilkan filter
+    filterSection.style.display = "flex"; 
     userInfo.textContent = `Halo, ${user.displayName} | `;
     muatData();
   } else {
@@ -72,12 +71,11 @@ onAuthStateChanged(auth, (user) => {
     logoutBtn.style.display = "none";
     appContent.style.display = "none";
     summarySection.style.display = "none";
-    filterSection.style.display = "none"; // Sembunyikan filter
+    filterSection.style.display = "none"; 
     userInfo.textContent = "";
   }
 });
 
-// Event Listeners Kontrol Filter
 filterType.addEventListener("change", () => {
   if (filterType.value === "semua") {
     filterDate.style.display = "none";
@@ -89,7 +87,7 @@ filterType.addEventListener("change", () => {
     filterDate.style.display = "none";
     filterMonth.style.display = "inline-block";
   }
-  prosesDanTampilkanData(); // Hitung ulang data saat tipe filter diganti
+  prosesDanTampilkanData();
 });
 
 filterDate.addEventListener("change", prosesDanTampilkanData);
@@ -138,16 +136,19 @@ function muatData() {
   const q = query(
     collection(db, "transaksi"),
     where("uid", "==", currentUser.uid),
-    orderBy("timestamp", "asc"),
+    orderBy("timestamp", "asc")
   );
 
+  // PENAMBAHAN PENTING: Menangkap error agar link Index muncul
   onSnapshot(q, (snapshot) => {
-    dataSnapshotGlobal = snapshot; // Simpan snapshot data ke variabel global
-    prosesDanTampilkanData(); // Proses penampilan data
+    dataSnapshotGlobal = snapshot; 
+    prosesDanTampilkanData(); 
+  }, (error) => {
+    console.error("GAGAL MEMUAT DATA FIRESTORE:", error);
+    alert("Data gagal dimuat karena butuh konfigurasi Index di Firebase. Buka tab Inspect -> Console di browser Anda, lalu klik link berwarna merah untuk memperbaikinya.");
   });
 }
 
-// FUNGSI UTAMA UNTUK FILTER DATA & TOTALS secara Real-time
 function prosesDanTampilkanData() {
   if (!dataSnapshotGlobal) return;
 
@@ -164,34 +165,25 @@ function prosesDanTampilkanData() {
   let totalRencana = 0;
 
   const tipeFilter = filterType.value;
-  const nilaiTanggal = filterDate.value; // Format: YYYY-MM-DD
-  const nilaiBulan = filterMonth.value; // Format: YYYY-MM
+  const nilaiTanggal = filterDate.value; 
+  const nilaiBulan = filterMonth.value; 
 
   dataSnapshotGlobal.forEach((doc) => {
     const dt = doc.data();
 
-    // --- LOGIKA PENYARINGAN (FILTERING) ---
-    if (
-      tipeFilter === "harian" &&
-      nilaiTanggal &&
-      dt.tanggal !== nilaiTanggal
-    ) {
-      return; // Lewati baris data ini jika tidak sesuai tanggal filter harian
+    if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal) {
+      return; 
     }
-    if (
-      tipeFilter === "bulanan" &&
-      nilaiBulan &&
-      !dt.tanggal.startsWith(nilaiBulan)
-    ) {
-      return; // Lewati baris data ini jika tidak sesuai bulan filter bulanan (pencocokan YYYY-MM)
+    if (tipeFilter === "bulanan" && nilaiBulan && !dt.tanggal.startsWith(nilaiBulan)) {
+      return; 
     }
 
     const row = `<tr>
-                      <td>${dt.tanggal}</td>
-                      <td>${formatRupiah(dt.nominal)}</td>
-                      <td>${dt.uraian}</td>
-                      ${dt.tipe !== "rencana" ? `<td>${dt.kategori}</td>` : ""}
-                  </tr>`;
+                  <td>${dt.tanggal}</td>
+                  <td>${formatRupiah(dt.nominal)}</td>
+                  <td>${dt.uraian}</td>
+                  ${dt.tipe !== "rencana" ? `<td>${dt.kategori}</td>` : ""}
+              </tr>`;
 
     if (dt.tipe === "pendapatan") {
       dataPendapatan.innerHTML += row;
@@ -205,20 +197,13 @@ function prosesDanTampilkanData() {
     }
   });
 
-  // Hitung Sisa Saldo terfilter
   const sisaPengeluaran = totalPendapatan - totalPengeluaran;
   const sisaRencana = totalPendapatan - totalRencana;
 
-  // Update UI Ringkasan secara Dinamis
-  document.getElementById("tot-pendapatan").textContent =
-    formatRupiah(totalPendapatan);
-  document.getElementById("tot-pengeluaran").textContent =
-    formatRupiah(totalPengeluaran);
-  document.getElementById("tot-rencana").textContent =
-    formatRupiah(totalRencana);
+  document.getElementById("tot-pendapatan").textContent = formatRupiah(totalPendapatan);
+  document.getElementById("tot-pengeluaran").textContent = formatRupiah(totalPengeluaran);
+  document.getElementById("tot-rencana").textContent = formatRupiah(totalRencana);
 
-  document.getElementById("tot-sisa-pengeluaran").textContent =
-    formatRupiah(sisaPengeluaran);
-  document.getElementById("tot-sisa-rencana").textContent =
-    formatRupiah(sisaRencana);
+  document.getElementById("tot-sisa-pengeluaran").textContent = formatRupiah(sisaPengeluaran);
+  document.getElementById("tot-sisa-rencana").textContent = formatRupiah(sisaRencana);
 }
