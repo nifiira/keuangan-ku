@@ -14,6 +14,9 @@ import {
   where,
   onSnapshot,
   orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -31,7 +34,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let currentUser = null;
-let dataSnapshotGlobal = null; 
+let dataSnapshotGlobal = null;
 
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -45,8 +48,7 @@ const filterDate = document.getElementById("filter-date");
 const filterMonth = document.getElementById("filter-month");
 
 loginBtn.addEventListener("click", () => {
-  const provider = new GoogleAuthProvider();
-  signInWithPopup(auth, provider).catch((error) =>
+  signInWithPopup(auth, new GoogleAuthProvider()).catch((error) =>
     console.error("Login Error:", error),
   );
 });
@@ -62,7 +64,7 @@ onAuthStateChanged(auth, (user) => {
     logoutBtn.style.display = "inline-block";
     appContent.style.display = "grid";
     summarySection.style.display = "grid";
-    filterSection.style.display = "flex"; 
+    filterSection.style.display = "flex";
     userInfo.textContent = `Halo, ${user.displayName} | `;
     muatData();
   } else {
@@ -71,7 +73,7 @@ onAuthStateChanged(auth, (user) => {
     logoutBtn.style.display = "none";
     appContent.style.display = "none";
     summarySection.style.display = "none";
-    filterSection.style.display = "none"; 
+    filterSection.style.display = "none";
     userInfo.textContent = "";
   }
 });
@@ -118,7 +120,33 @@ window.tambahData = async function (tipe) {
     document.getElementById(`nom-${tipe}`).value = "";
     document.getElementById(`ket-${tipe}`).value = "";
   } catch (e) {
-    console.error("Error adding document: ", e);
+    console.error("Error menambahkan data: ", e);
+  }
+};
+
+window.hapusData = async function (id) {
+  if (confirm("Apakah Anda yakin ingin menghapus data transaksi ini?")) {
+    try {
+      await deleteDoc(doc(db, "transaksi", id));
+    } catch (e) {
+      console.error("Error menghapus data: ", e);
+    }
+  }
+};
+
+window.editData = async function (id, nominalLama, uraianLama) {
+  const baruNominal = prompt("Masukkan nominal baru:", nominalLama);
+  const baruUraian = prompt("Masukkan uraian baru:", uraianLama);
+
+  if (baruNominal && baruUraian) {
+    try {
+      await updateDoc(doc(db, "transaksi", id), {
+        nominal: parseInt(baruNominal),
+        uraian: baruUraian,
+      });
+    } catch (e) {
+      console.error("Error memperbarui data: ", e);
+    }
   }
 };
 
@@ -136,17 +164,19 @@ function muatData() {
   const q = query(
     collection(db, "transaksi"),
     where("uid", "==", currentUser.uid),
-    orderBy("timestamp", "asc")
+    orderBy("timestamp", "asc"),
   );
 
-  // PENAMBAHAN PENTING: Menangkap error agar link Index muncul
-  onSnapshot(q, (snapshot) => {
-    dataSnapshotGlobal = snapshot; 
-    prosesDanTampilkanData(); 
-  }, (error) => {
-    console.error("GAGAL MEMUAT DATA FIRESTORE:", error);
-    alert("Data gagal dimuat karena butuh konfigurasi Index di Firebase. Buka tab Inspect -> Console di browser Anda, lalu klik link berwarna merah untuk memperbaikinya.");
-  });
+  onSnapshot(
+    q,
+    (snapshot) => {
+      dataSnapshotGlobal = snapshot;
+      prosesDanTampilkanData();
+    },
+    (error) => {
+      console.error("Gagal memuat data Firestore:", error);
+    },
+  );
 }
 
 function prosesDanTampilkanData() {
@@ -164,27 +194,42 @@ function prosesDanTampilkanData() {
   let totalPengeluaran = 0;
   let totalRencana = 0;
 
+  // Variabel penampung total per kategori
+  let totalPerKategori = {
+    pendapatan: {},
+    pengeluaran: {},
+    rencana: {},
+  };
+
   const tipeFilter = filterType.value;
-  const nilaiTanggal = filterDate.value; 
-  const nilaiBulan = filterMonth.value; 
+  const nilaiTanggal = filterDate.value;
+  const nilaiBulan = filterMonth.value;
 
-  dataSnapshotGlobal.forEach((doc) => {
-    const dt = doc.data();
+  dataSnapshotGlobal.forEach((documentDoc) => {
+    const dt = documentDoc.data();
+    const docId = documentDoc.id;
 
-    if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal) {
-      return; 
-    }
-    if (tipeFilter === "bulanan" && nilaiBulan && !dt.tanggal.startsWith(nilaiBulan)) {
-      return; 
-    }
+    if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal)
+      return;
+    if (
+      tipeFilter === "bulanan" &&
+      nilaiBulan &&
+      !dt.tanggal.startsWith(nilaiBulan)
+    )
+      return;
 
     const row = `<tr>
-                  <td>${dt.tanggal}</td>
-                  <td>${formatRupiah(dt.nominal)}</td>
-                  <td>${dt.uraian}</td>
-                  ${dt.tipe !== "rencana" ? `<td>${dt.kategori}</td>` : ""}
-              </tr>`;
+                        <td>${dt.tanggal}</td>
+                        <td>${formatRupiah(dt.nominal)}</td>
+                        <td>${dt.uraian}</td>
+                        <td>${dt.kategori}</td>
+                        <td>
+                          <button class="btn-edit" onclick="editData('${docId}', ${dt.nominal}, '${dt.uraian}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                          <button class="btn-delete" onclick="hapusData('${docId}')"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
 
+    // Akumulasi total utama dan total kategori
     if (dt.tipe === "pendapatan") {
       dataPendapatan.innerHTML += row;
       totalPendapatan += dt.nominal;
@@ -195,15 +240,49 @@ function prosesDanTampilkanData() {
       dataRencana.innerHTML += row;
       totalRencana += dt.nominal;
     }
+
+    // Hitung total spesifik per kategori
+    if (!totalPerKategori[dt.tipe][dt.kategori]) {
+      totalPerKategori[dt.tipe][dt.kategori] = 0;
+    }
+    totalPerKategori[dt.tipe][dt.kategori] += dt.nominal;
+  });
+
+  // Tampilkan Total per Kategori ke Elemen HTML Masing-masing
+  const tipeTransaksi = ["pendapatan", "pengeluaran", "rencana"];
+  tipeTransaksi.forEach((tipe) => {
+    const containerKategori = document.getElementById(`cat-total-${tipe}`);
+    containerKategori.innerHTML = "<h5>Total per Kategori:</h5>";
+
+    const daftarKategori = totalPerKategori[tipe];
+    if (Object.keys(daftarKategori).length === 0) {
+      containerKategori.innerHTML +=
+        "<div style='color:#888; text-align:center;'>Belum ada data</div>";
+    } else {
+      for (const [namaKategori, nominalKategori] of Object.entries(
+        daftarKategori,
+      )) {
+        containerKategori.innerHTML += `
+                <div class="category-item">
+                  <span>${namaKategori}</span>
+                  <strong>${formatRupiah(nominalKategori)}</strong>
+                </div>`;
+      }
+    }
   });
 
   const sisaPengeluaran = totalPendapatan - totalPengeluaran;
   const sisaRencana = totalPendapatan - totalRencana;
 
-  document.getElementById("tot-pendapatan").textContent = formatRupiah(totalPendapatan);
-  document.getElementById("tot-pengeluaran").textContent = formatRupiah(totalPengeluaran);
-  document.getElementById("tot-rencana").textContent = formatRupiah(totalRencana);
+  document.getElementById("tot-pendapatan").textContent =
+    formatRupiah(totalPendapatan);
+  document.getElementById("tot-pengeluaran").textContent =
+    formatRupiah(totalPengeluaran);
+  document.getElementById("tot-rencana").textContent =
+    formatRupiah(totalRencana);
 
-  document.getElementById("tot-sisa-pengeluaran").textContent = formatRupiah(sisaPengeluaran);
-  document.getElementById("tot-sisa-rencana").textContent = formatRupiah(sisaRencana);
+  document.getElementById("tot-sisa-pengeluaran").textContent =
+    formatRupiah(sisaPengeluaran);
+  document.getElementById("tot-sisa-rencana").textContent =
+    formatRupiah(sisaRencana);
 }
