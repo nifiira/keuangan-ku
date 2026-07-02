@@ -150,6 +150,12 @@ window.editData = async function (id, nominalLama, uraianLama) {
   }
 };
 
+function formatTanggal(tanggalStr) {
+  if (!tanggalStr) return "";
+  const [tahun, bulan, hari] = tanggalStr.split("-");
+  return `${hari}-${bulan}-${tahun}`;
+}
+
 function formatRupiah(angka) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -164,24 +170,35 @@ function muatData() {
   const q = query(
     collection(db, "transaksi"),
     where("uid", "==", currentUser.uid),
-    orderBy("timestamp", "asc"),
+    orderBy("timestamp", "asc") 
   );
 
   onSnapshot(
     q,
     (snapshot) => {
       dataSnapshotGlobal = snapshot;
-      prosesDanTampilkanData();
+      prosesDanTampilkanData(); // Panggil fungsi render setelah data dimuat
     },
     (error) => {
       console.error("Gagal memuat data Firestore:", error);
-    },
+    }
   );
 }
 
 function prosesDanTampilkanData() {
   if (!dataSnapshotGlobal) return;
 
+  // --- A. Ubah snapshot jadi Array & Sortir Berdasarkan Tanggal ---
+  let dataArray = [];
+  dataSnapshotGlobal.forEach((doc) => {
+    dataArray.push({ id: doc.id, ...doc.data() });
+  });
+
+  // Sortir dari tanggal lama ke baru (asc). 
+  // Jika ingin baru ke lama, ganti (new Date(b.tanggal) - new Date(a.tanggal))
+  dataArray.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+
+  // --- B. Reset tampilan & hitung variabel ---
   const dataPendapatan = document.getElementById("table-pendapatan");
   const dataPengeluaran = document.getElementById("table-pengeluaran");
   const dataRencana = document.getElementById("table-rencana");
@@ -194,7 +211,6 @@ function prosesDanTampilkanData() {
   let totalPengeluaran = 0;
   let totalRencana = 0;
 
-  // Variabel penampung total per kategori
   let totalPerKategori = {
     pendapatan: {},
     pengeluaran: {},
@@ -205,31 +221,25 @@ function prosesDanTampilkanData() {
   const nilaiTanggal = filterDate.value;
   const nilaiBulan = filterMonth.value;
 
-  dataSnapshotGlobal.forEach((documentDoc) => {
-    const dt = documentDoc.data();
-    const docId = documentDoc.id;
+  // --- C. Looping data yang sudah terurut ---
+  dataArray.forEach((dt) => {
+    // Logika Filter
+    if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal) return;
+    if (tipeFilter === "bulanan" && nilaiBulan && !dt.tanggal.startsWith(nilaiBulan)) return;
 
-    if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal)
-      return;
-    if (
-      tipeFilter === "bulanan" &&
-      nilaiBulan &&
-      !dt.tanggal.startsWith(nilaiBulan)
-    )
-      return;
-
+    // Buat baris tabel
     const row = `<tr>
-                        <td>${dt.tanggal}</td>
-                        <td>${formatRupiah(dt.nominal)}</td>
-                        <td>${dt.uraian}</td>
-                        <td>${dt.kategori}</td>
-                        <td>
-                          <button class="btn-edit" onclick="editData('${docId}', ${dt.nominal}, '${dt.uraian}')"><i class="fa-solid fa-pen-to-square"></i></button>
-                          <button class="btn-delete" onclick="hapusData('${docId}')"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    </tr>`;
+                  <td>${formatTanggal(dt.tanggal)}</td>
+                  <td>${formatRupiah(dt.nominal)}</td>
+                  <td>${dt.uraian}</td>
+                  <td>${dt.kategori}</td>
+                  <td>
+                    <button class="btn-edit" onclick="editData('${dt.id}', ${dt.nominal}, '${dt.uraian}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-delete" onclick="hapusData('${dt.id}')"><i class="fa-solid fa-trash"></i></button>
+                  </td>
+                </tr>`;
 
-    // Akumulasi total utama dan total kategori
+    // Akumulasi data
     if (dt.tipe === "pendapatan") {
       dataPendapatan.innerHTML += row;
       totalPendapatan += dt.nominal;
@@ -241,14 +251,14 @@ function prosesDanTampilkanData() {
       totalRencana += dt.nominal;
     }
 
-    // Hitung total spesifik per kategori
+    // Akumulasi per kategori
     if (!totalPerKategori[dt.tipe][dt.kategori]) {
       totalPerKategori[dt.tipe][dt.kategori] = 0;
     }
     totalPerKategori[dt.tipe][dt.kategori] += dt.nominal;
   });
 
-  // Tampilkan Total per Kategori ke Elemen HTML Masing-masing
+  // --- D. Update Total Kategori di UI ---
   const tipeTransaksi = ["pendapatan", "pengeluaran", "rencana"];
   tipeTransaksi.forEach((tipe) => {
     const containerKategori = document.getElementById(`cat-total-${tipe}`);
@@ -256,33 +266,22 @@ function prosesDanTampilkanData() {
 
     const daftarKategori = totalPerKategori[tipe];
     if (Object.keys(daftarKategori).length === 0) {
-      containerKategori.innerHTML +=
-        "<div style='color:#888; text-align:center;'>Belum ada data</div>";
+      containerKategori.innerHTML += "<div style='color:#888; text-align:center;'>Belum ada data</div>";
     } else {
-      for (const [namaKategori, nominalKategori] of Object.entries(
-        daftarKategori,
-      )) {
+      for (const [nama, total] of Object.entries(daftarKategori)) {
         containerKategori.innerHTML += `
-                <div class="category-item">
-                  <span>${namaKategori}</span>
-                  <strong>${formatRupiah(nominalKategori)}</strong>
-                </div>`;
+          <div class="category-item">
+            <span>${nama}</span>
+            <strong>${formatRupiah(total)}</strong>
+          </div>`;
       }
     }
   });
 
-  const sisaPengeluaran = totalPendapatan - totalPengeluaran;
-  const sisaRencana = totalPendapatan - totalRencana;
-
-  document.getElementById("tot-pendapatan").textContent =
-    formatRupiah(totalPendapatan);
-  document.getElementById("tot-pengeluaran").textContent =
-    formatRupiah(totalPengeluaran);
-  document.getElementById("tot-rencana").textContent =
-    formatRupiah(totalRencana);
-
-  document.getElementById("tot-sisa-pengeluaran").textContent =
-    formatRupiah(sisaPengeluaran);
-  document.getElementById("tot-sisa-rencana").textContent =
-    formatRupiah(sisaRencana);
+  // --- E. Update Total Keseluruhan ---
+  document.getElementById("tot-pendapatan").textContent = formatRupiah(totalPendapatan);
+  document.getElementById("tot-pengeluaran").textContent = formatRupiah(totalPengeluaran);
+  document.getElementById("tot-rencana").textContent = formatRupiah(totalRencana);
+  document.getElementById("tot-sisa-pengeluaran").textContent = formatRupiah(totalPendapatan - totalPengeluaran);
+  document.getElementById("tot-sisa-rencana").textContent = formatRupiah(totalPendapatan - totalRencana);
 }
