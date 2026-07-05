@@ -47,6 +47,20 @@ const filterType = document.getElementById("filter-type");
 const filterDate = document.getElementById("filter-date");
 const filterMonth = document.getElementById("filter-month");
 
+// ==========================================
+// KODE DEFAULT: SET KE BULAN BERJALAN
+// ==========================================
+const hariIni = new Date();
+const tahun = hariIni.getFullYear();
+const bulan = String(hariIni.getMonth() + 1).padStart(2, "0"); 
+const bulanBerjalan = `${tahun}-${bulan}`;
+
+filterType.value = "bulanan";
+filterMonth.value = bulanBerjalan;
+filterMonth.style.display = "inline-block";
+filterDate.style.display = "none";
+// ==========================================
+
 loginBtn.addEventListener("click", () => {
   signInWithPopup(auth, new GoogleAuthProvider()).catch((error) =>
     console.error("Login Error:", error),
@@ -95,6 +109,7 @@ filterType.addEventListener("change", () => {
 filterDate.addEventListener("change", prosesDanTampilkanData);
 filterMonth.addEventListener("change", prosesDanTampilkanData);
 
+// Daftarkan fungsi ke window agar bisa dipanggil dari index.html
 window.tambahData = async function (tipe) {
   if (!currentUser) return alert("Silakan login dulu!");
 
@@ -177,7 +192,7 @@ function muatData() {
     q,
     (snapshot) => {
       dataSnapshotGlobal = snapshot;
-      prosesDanTampilkanData(); // Panggil fungsi render setelah data dimuat
+      prosesDanTampilkanData();
     },
     (error) => {
       console.error("Gagal memuat data Firestore:", error);
@@ -194,8 +209,7 @@ function prosesDanTampilkanData() {
     dataArray.push({ id: doc.id, ...doc.data() });
   });
 
-  // Sortir dari tanggal lama ke baru (asc). 
-  // Jika ingin baru ke lama, ganti (new Date(b.tanggal) - new Date(a.tanggal))
+  // Sortir dari tanggal awal ke akhir (lama ke baru)
   dataArray.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
 
   // --- B. Reset tampilan & hitung variabel ---
@@ -223,11 +237,10 @@ function prosesDanTampilkanData() {
 
   // --- C. Looping data yang sudah terurut ---
   dataArray.forEach((dt) => {
-    // Logika Filter
     if (tipeFilter === "harian" && nilaiTanggal && dt.tanggal !== nilaiTanggal) return;
     if (tipeFilter === "bulanan" && nilaiBulan && !dt.tanggal.startsWith(nilaiBulan)) return;
 
-    // Buat baris tabel
+    // Buat baris tabel (Ubah format tanggal di sini)
     const row = `<tr>
                   <td>${formatTanggal(dt.tanggal)}</td>
                   <td>${formatRupiah(dt.nominal)}</td>
